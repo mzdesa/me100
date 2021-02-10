@@ -24,4 +24,4 @@ while True:
     except ZeroDivisionError:
         print("Resistance: ", 'NaN', "Ohms", end = ' | ')
         
-    print("Power:", ina.voltage()*ina.current(), "mW") #don't use optional argument end such that the next set is printed on a new line
+    print("Power:", ina.power(), "mW") #don't use optional argument end such that the next set is printed on a new line
