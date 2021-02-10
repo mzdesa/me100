@@ -14,4 +14,12 @@ ina.configure()
 
 while True:
     ''' Insert your code here to read and print voltage, current, and power from ina219. '''
-    print(ina.voltage())
+    time.sleep(0.5) #code to print to the terminal every 0.5 seconds 
+    #note: the end argument in the print function prints all the lines on the same line - separate print statements are used for easier organization
+    print("Current:", ina.current(), "mA", end = ' | ')
+    print("Voltage:", ina.voltage(), "V", end = ' | ')
+    if ina.current() == 0: #exception if current = 0 to avoid a divide by zero error
+        print("Resistance: ", 'NaN', "Ohms", end = ' | ')
+    else: 
+        print("Resistance:", ina.voltage()/(ina.current()/1000), "Ohms", end = ' | ')#note the conversion factor to give units of ohms
+    print("Power:", ina.voltage()*ina.current(), "mW") #don't use optional argument end such that the next set is printed on a new line
