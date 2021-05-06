@@ -6,10 +6,10 @@ import time
 pin_14 = Pin(14, mode = Pin.OUT)
 #cycle the square wave 300 times
 i = 0 #counter variable
-t = 0.2 #time to hold an output for
-while i<300:
-    pin_14(1) #hold at a high value for 0.2s
+t = 0.002 #time to hold an output for
+while i<3000:
+    pin_14(1) #hold at a high value for t seconds
     time.sleep(t)
     pin_14(0)
-    time.sleep(t) #hold at a low value for 0.2s
+    time.sleep(t) #hold at a low value for t seconds
     i+=1
