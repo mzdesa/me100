@@ -96,10 +96,17 @@ class Axis:
         else:
             #cmm mode movement - do one step at a time - if the switch is high, stop and publish position data
             for i in range(cnt):
-                if switch == 1:
+                if sense.value() == 0: #when the pin reads 0, the sensor is depressed!
                     mqtt.publish(feedName, position())
+                    #now step it backwards in the opposite direction to stop it from continually sending the point
+                    if direc == 1:
+                        self.motors[0].step(10, 0) #if the stepping directiosn was 1, to move it back, go 10 steps in the zero direction
+                        self.angle -= 10*1.8 #readjust the angle
+                    else:
+                        self.motors[0].step(10,1)
+                        self.angle += 10*1.8
                 else:
-                    #if switch is zero, complete one step
+                    #if switch is at 1, complete one step
                     self.motors[0].step(1, direc)
                     if direc == 1:
                         self.angle = self.angle+1*1.8*self.ratio
@@ -150,12 +157,31 @@ class Axis:
         else:
             #CMM mode operation
             for i in range(count):
-                if switch == 1:
+                if sense.value() == 0:
                     mqtt.publish(feedName, position())
+                    #now, step in the opposite direction
+                    if direction == 1:
+                        self.motors[0].dirPin.value(0)
+                        self.motors[1].dirPin.value(1) #switch the direction
+                        for i in range(10): #step backwards 10
+                            self.motors[0].stepPin.value(1)
+                            self.motors[1].stepPin.value(1)
+                            time.sleep_us(self.motors[1].delay)
+                        self.motors[0].pos -= 10 #subtract 10 steos
+                        self.motors[1].pos += 10
+                    else:
+                        self.motors[0].dirPin.value(1)
+                        self.motors[1].dirPin.value(0) #switch the direction
+                        for i in range(10): #step backwards 10
+                            self.motors[0].stepPin.value(1)
+                            self.motors[1].stepPin.value(1)
+                            time.sleep_us(self.motors[1].delay)
+                        self.motors[0].pos += 10 #add 10 steos
+                        self.motors[1].pos -= 10
                 else:
                     #if switch is zero, complete one step
-                    self.motors[0].step(1, direction)
-                    self.motors[1].step(2,direction)
+                    self.motors[0].stepPin.value(1)
+                    self.motors[1].stepPin.value(1)
                     if direction == 1:
                         self.angle = self.angle+1*1.8*self.ratio
                         self.motors[0].pos == self.motors[0].pos + 1
@@ -175,8 +201,9 @@ class Axis:
 global mode
 mode = "normal" #mode can be either normal or cmm
 
-global switch
-switch = 0 #if switch is off, it's not being depressed, if on, it is
+#define a globally accessible pin object
+global sense
+sense = Pin(21, Pin.IN)
 
 #note: ratio is the ratio of the input to the output
 #base (axis 1)
@@ -287,7 +314,11 @@ def sub_cb(topic, msg):
             mode = "cmm"
         else:
             mode = "normal"
+
     #add a command for "robot connected" being the message
+    elif "Robot" in cmnd: #recognizes it through "Robot"
+        print("Welcome") #if "robot connected" is the command, continue on normally
+
     else:
         print("Error, Command Not Recognized")
     print((topic, msg))
