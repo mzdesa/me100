@@ -28,11 +28,12 @@ class Stepper:
             time.sleep_us(self.delay) 
 
 #create an instance of the stepper class
-stepperPin = 15
-directionPin = 27
+stepperPin = 4
+directionPin = 13
 stepDelay = 500
 
 s1 = Stepper(stepperPin, directionPin, stepDelay) #create an instance of the stepper class with the above variables
+s1.step(10,1)
 
 stepperPin2 = 32
 directionPin2 = 14

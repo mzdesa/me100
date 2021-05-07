@@ -16,7 +16,7 @@ else:
 # Set up Adafruit connection
 adafruitIoUrl = 'io.adafruit.com'
 adafruitUsername = 'mzdesa'
-adafruitAioKey = 'aio_GJdP223W6wRRDsxKpaderIj1SLaE'
+adafruitAioKey = 'aio_aAiC902MP1gJ5ZN4HhyUHqnTREr5'
 
 # Define callback function - should edit THIS!!! See: https://github.com/micropython/micropython-lib/blob/master/umqtt.simple/example_sub_led.py
 def sub_cb(topic, msg):

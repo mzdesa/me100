@@ -53,7 +53,7 @@ else:
 # Set up Adafruit connection
 adafruitIoUrl = 'io.adafruit.com'
 adafruitUsername = 'mzdesa'
-adafruitAioKey = 'aio_GJdP223W6wRRDsxKpaderIj1SLaE'
+adafruitAioKey = 'aio_aAiC902MP1gJ5ZN4HhyUHqnTREr5'
 
 # Define callback function - should edit THIS!!!
 def sub_cb(topic, msg):

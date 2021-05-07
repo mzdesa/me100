@@ -5,7 +5,10 @@ Record the position in space in an array
 Send the array back to the user
 """
 #stepper driver libraries
-from machine import Pin, PWM, Timer
+from machine import Pin, PWM, Timer, I2C
+from board import SDA, SCL
+from board import LED
+#from mpu9250_new import MPU9250
 import time
 import math
 
@@ -14,6 +17,11 @@ from mqttclient import MQTTClient
 import network
 import sys
 
+#set up MPU to be used at a later point
+#MPU9250._chip_id = 113
+# 115, 113, 104
+#i2c = I2C(id=0, scl=Pin(SCL), sda=Pin(SDA), freq=400000)
+#imu = MPU9250(i2c)
 
 #Stepper Class
 class Stepper:
@@ -68,24 +76,28 @@ class Servo:
         self.angle = math.floor((180/100)*duty_input) #update the angle of the arm
 
 #define functions for the arm 
+#global mode
+#mode = "normal" #mode can be either normal or cmm
 
 class Axis:
     """
     class for each axis of the stepper. It takes in an array of the motors that drive that axis.
     """
-    def __init__(self, arr_motors, lth, sensor_name, ra):
+    def __init__(self, arr_motors, lth, sensor_name, ra, mod):
         self.motors = arr_motors
         self.angle = arr_motors[0].pos #initialize the angle of the arm as zero
         self.length = lth #length of the arm
         self.sensName = sensor_name #name of the sensor object that gives the angle of the arm
         self.ratio = ra #gear ratio from the stepper to the arm
+        self.mode = mod #holds the drive mode (cmm, normal) of the arm
 
     def drive(self, cnt, direc):
         """
         function to drive a single motor arm
         """
-        if mode == "normal":
+        if self.mode == "normal":
             self.motors[0].step(cnt,direc)
+            #print("normal")
             #now, update the angle of the arm - each step is 1.8 degrees (NEMA 17 and 11 standard)
             if direc == 1:
                 self.angle = self.angle+cnt*1.8*self.ratio
@@ -95,19 +107,25 @@ class Axis:
                 print('invalid direction - must be 0 or 1')
         else:
             #cmm mode movement - do one step at a time - if the switch is high, stop and publish position data
+            sense = Pin(21, Pin.IN)
             for i in range(cnt):
                 if sense.value() == 0: #when the pin reads 0, the sensor is depressed!
                     mqtt.publish(feedName, position())
+                    self.motors[0].reset() #reset the stepper so it stops driving
+                    time.sleep(1) #sleep for 5 seconds after readjusting from point
                     #now step it backwards in the opposite direction to stop it from continually sending the point
+                    print(sense.value())
                     if direc == 1:
-                        self.motors[0].step(10, 0) #if the stepping directiosn was 1, to move it back, go 10 steps in the zero direction
-                        self.angle -= 10*1.8 #readjust the angle
+                        self.motors[0].step(50, 0) #if the stepping directiosn was 1, to move it back, go 50 steps in the zero direction
+                        self.angle -= 50*1.8 #readjust the angle
                     else:
-                        self.motors[0].step(10,1)
-                        self.angle += 10*1.8
+                        self.motors[0].step(50,1)
+                        self.angle += 50*1.8
+                    break #break out of the for loop (stop driving!)
                 else:
                     #if switch is at 1, complete one step
                     self.motors[0].step(1, direc)
+                    print(sense.value())
                     if direc == 1:
                         self.angle = self.angle+1*1.8*self.ratio
                     elif direc == 0:
@@ -132,7 +150,7 @@ class Axis:
         else:
             self.motors[1].dirPin.value(1)
         
-        if mode == "normal":
+        if self.mode == "normal":
             for i in range(count): #do a count number of "steps" of the motor
                 self.motors[0].stepPin.value(1)
                 self.motors[1].stepPin.value(1)
@@ -163,21 +181,21 @@ class Axis:
                     if direction == 1:
                         self.motors[0].dirPin.value(0)
                         self.motors[1].dirPin.value(1) #switch the direction
-                        for i in range(10): #step backwards 10
+                        for i in range(50): #step backwards 50
                             self.motors[0].stepPin.value(1)
                             self.motors[1].stepPin.value(1)
                             time.sleep_us(self.motors[1].delay)
-                        self.motors[0].pos -= 10 #subtract 10 steos
-                        self.motors[1].pos += 10
+                        self.motors[0].pos -= 50 #subtract 50 steos
+                        self.motors[1].pos += 50
                     else:
                         self.motors[0].dirPin.value(1)
                         self.motors[1].dirPin.value(0) #switch the direction
-                        for i in range(10): #step backwards 10
+                        for i in range(50): #step backwards 50
                             self.motors[0].stepPin.value(1)
                             self.motors[1].stepPin.value(1)
                             time.sleep_us(self.motors[1].delay)
-                        self.motors[0].pos += 10 #add 10 steos
-                        self.motors[1].pos -= 10
+                        self.motors[0].pos += 50 #add 50 steps
+                        self.motors[1].pos -= 50
                 else:
                     #if switch is zero, complete one step
                     self.motors[0].stepPin.value(1)
@@ -198,34 +216,38 @@ class Axis:
         a1.angle = 0
 
 #PREDEFINE ALL STEPPER NAMES FOR THE USER
-global mode
-mode = "normal" #mode can be either normal or cmm
 
 #define a globally accessible pin object
-global sense
-sense = Pin(21, Pin.IN)
+#global sense
+#sense = Pin(21, Pin.IN)
 
 #note: ratio is the ratio of the input to the output
 #base (axis 1)
 delay = 1000
 s1 = Stepper(15, 27, delay) #define base stepper motor
-a1 = Axis([s1],0, '', 12.21/120)
+a1 = Axis([s1],0, '', 12.21/120, "normal")
 #arm 1 (axis 2)
 s2 = Stepper(32, 14, delay) #define arm1 stepper motor1
-a2 = Axis([s2], 0.15, '', 12.21/60)
+a2 = Axis([s2], 0.15, '', 12.21/60, "normal")
 #arm 2 (axis 3)
 s3 = Stepper(17, 16, delay) #define arm1 stepper motor2
-a3 = Axis([s3], 0.2, '', 12.21/40)
+a3 = Axis([s3], 0.2, '', 12.21/40, "normal")
 #arm 3 (axis 4 - rotational only)
-#s4 = Stepper(stepperPin, directionPin, stepDelay) #define arm 3 rotation stepper motor
-#a3 = Axis([s4], 0, '', 1) #note the 1:1 ratio from the direct coupling
+s4 = Stepper(4, 13, 500) #define arm 3 rotation stepper motor
+a4 = Axis([s4], 0, '', 1, "normal") #note the 1:1 ratio from the direct coupling
 
 def position():
     """
     function that takes in no arguments and returns the position of the endpoint
     """
-    position = str([0,0,0])
-    return position
+    p1 = [a2.length*math.sin(math.radians(a2.angle)), a2.length*math.cos(math.radians(a2.angle))] #calculate the position of the 1st endpoint, unrotated
+    r_1 = a2.length*math.sin(math.radians(a2.angle))+a3.length*math.cos(math.radians(a3.angle))*math.sin(math.radians(a2.angle))+a3.length*math.sin(math.radians(a3.angle))*math.cos(math.radians(a2.angle))
+    r_2 = a2.length*math.cos(math.radians(a2.angle))+a3.length*math.cos(math.radians(a3.angle))*math.cos(math.radians(a2.angle))-a3.length*math.sin(math.radians(a3.angle))*math.sin(math.radians(a2.angle))
+    r = [r_1, r_2, 0] #un-base rotated r vector #note that the j axis is vertical position
+    #now, rotate the vector
+    r = [r[0]*math.cos(math.radians(a1.angle)), r_2, r[0]*math.sin(math.radians(a1.angle))]
+    r = str(r)
+    return r #return r as a string!
 
 #Internet Connectivity
 # Check wifi connection
@@ -241,7 +263,7 @@ else:
 # Set up Adafruit connection
 adafruitIoUrl = 'io.adafruit.com'
 adafruitUsername = 'mzdesa'
-adafruitAioKey = 'aio_GJdP223W6wRRDsxKpaderIj1SLaE'
+adafruitAioKey = 'aio_aAiC902MP1gJ5ZN4HhyUHqnTREr5'
 
 # Define callback function - should edit THIS!!! See: https://github.com/micropython/micropython-lib/blob/master/umqtt.simple/example_sub_led.py
 def sub_cb(topic, msg):
@@ -308,16 +330,26 @@ def sub_cb(topic, msg):
         pos = position()
         mqtt.publish(feedName, pos)
 
-    elif cmnd[0:4] == "mode":
+    elif "mode" in cmnd:
         #recognizes commands of the form 'mode(cmm)'
         if "cmm" in cmnd:
-            mode = "cmm"
+            a1.mode = "cmm" #reset the mode variable to cmm
+            a2.mode = "cmm"
+            a3.mode = "cmm"
+            #a4.mode = "cmm"
         else:
-            mode = "normal"
-
-    #add a command for "robot connected" being the message
-    elif "Robot" in cmnd: #recognizes it through "Robot"
-        print("Welcome") #if "robot connected" is the command, continue on normally
+            a1.mode = "normal"
+            a2.mode = "normal"
+            a3.mode = "normal"
+            #a1.mode = "normal"
+    
+    elif "imu" in cmnd: #if the command to read IMU data at a certain point in time is received, then send the IMU data to the user
+        #x_array_data = [imu.accel.x, imu.accel.y, imu.accel.z, imu.gyro.x, imu.gyr0.y, imu.gyro.z]
+        #mqtt.publish(feedName, x_array_data)
+        print("imu")
+    
+    elif "Robot" in cmnd:
+        print("Welcome") #recognizes the first time connection of the robot and avoids sending error message!
 
     else:
         print("Error, Command Not Recognized")
