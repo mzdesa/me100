@@ -8,7 +8,7 @@ Send the array back to the user
 from machine import Pin, PWM, Timer, I2C
 from board import SDA, SCL
 from board import LED
-#from mpu9250_new import MPU9250
+from mpu9250_new import MPU9250
 import time
 import math
 
@@ -18,10 +18,10 @@ import network
 import sys
 
 #set up MPU to be used at a later point
-#MPU9250._chip_id = 113
+MPU9250._chip_id = 113
 # 115, 113, 104
-#i2c = I2C(id=0, scl=Pin(SCL), sda=Pin(SDA), freq=400000)
-#imu = MPU9250(i2c)
+i2c = I2C(id=0, scl=Pin(SCL), sda=Pin(SDA), freq=400000)
+imu = MPU9250(i2c)
 
 #Stepper Class
 class Stepper:
@@ -63,7 +63,7 @@ class Stepper:
         self.stepPin.value(0)
 
 
-#Servo Class
+#Servo Class - Allows for expansion to an additional servo motor if the user wishes
 class Servo:
     def __init__(self, spin, frq):
         self.servoPin = Pin(spin, Pin.OUT) #define the servo pin
@@ -217,11 +217,7 @@ class Axis:
 
 #PREDEFINE ALL STEPPER NAMES FOR THE USER
 
-#define a globally accessible pin object
-#global sense
-#sense = Pin(21, Pin.IN)
-
-#note: ratio is the ratio of the input to the output
+#note: ratio is the ratio of the input to the output gears
 #base (axis 1)
 delay = 1000
 s1 = Stepper(15, 27, delay) #define base stepper motor
@@ -263,7 +259,7 @@ else:
 # Set up Adafruit connection
 adafruitIoUrl = 'io.adafruit.com'
 adafruitUsername = 'mzdesa'
-adafruitAioKey = 'aio_aAiC902MP1gJ5ZN4HhyUHqnTREr5'
+adafruitAioKey = 'KEY'
 
 # Define callback function - should edit THIS!!! See: https://github.com/micropython/micropython-lib/blob/master/umqtt.simple/example_sub_led.py
 def sub_cb(topic, msg):
@@ -344,8 +340,8 @@ def sub_cb(topic, msg):
             #a1.mode = "normal"
     
     elif "imu" in cmnd: #if the command to read IMU data at a certain point in time is received, then send the IMU data to the user
-        #x_array_data = [imu.accel.x, imu.accel.y, imu.accel.z, imu.gyro.x, imu.gyr0.y, imu.gyro.z]
-        #mqtt.publish(feedName, x_array_data)
+        x_array_data = [imu.accel.x, imu.accel.y, imu.accel.z, imu.gyro.x, imu.gyr0.y, imu.gyro.z]
+        mqtt.publish(feedName, x_array_data)
         print("imu")
     
     elif "Robot" in cmnd:
@@ -376,7 +372,6 @@ print("Published {} to {}.".format(testMessage,feedName))
 mqtt.subscribe(feedName)
 
 #The following will be the "LOOP" section (analogous to arduino)
-for i in range(60): #read messages from Adafruit IO for 10 seconds
+for i in range(600): #Runs the robot for a ten minute session
     mqtt.check_msg() #uses a callback function to limit the time the program runs (see inf. running commented out above)
-    #print(x) - x ISN'T actually storing it!
     time.sleep(1)
